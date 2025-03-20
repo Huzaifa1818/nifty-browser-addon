@@ -16,7 +16,7 @@ import {
 import UrlConfigItem from "@/components/UrlConfigItem";
 import { 
   Play, 
-  Stop,
+  Square, // Replacing Stop with Square icon
   Plus,
   Settings,
   Upload,
@@ -136,7 +136,7 @@ const Index = () => {
   // Check status on load
   useEffect(() => {
     const checkStatus = async () => {
-      if (chrome.runtime && chrome.runtime.sendMessage) {
+      if (chrome?.runtime && chrome?.runtime.sendMessage) {
         try {
           chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
             if (response) {
@@ -196,7 +196,7 @@ const Index = () => {
   }, []);
   
   const startAutomation = () => {
-    if (chrome.runtime && chrome.runtime.sendMessage) {
+    if (chrome?.runtime && chrome?.runtime.sendMessage) {
       const config = generateAutomationSteps(urlConfigs);
       
       chrome.runtime.sendMessage(
@@ -215,7 +215,7 @@ const Index = () => {
   };
   
   const stopAutomation = () => {
-    if (chrome.runtime && chrome.runtime.sendMessage) {
+    if (chrome?.runtime && chrome?.runtime.sendMessage) {
       chrome.runtime.sendMessage(
         { type: 'STOP_AUTOMATION' },
         (response) => {
@@ -232,7 +232,7 @@ const Index = () => {
   };
   
   const saveConfiguration = () => {
-    if (chrome.runtime && chrome.runtime.sendMessage) {
+    if (chrome?.runtime && chrome?.runtime.sendMessage) {
       const config = generateAutomationSteps(urlConfigs);
       
       chrome.runtime.sendMessage(
@@ -279,7 +279,7 @@ const Index = () => {
       }
       
       // Import into automation system
-      if (chrome.runtime && chrome.runtime.sendMessage) {
+      if (chrome?.runtime && chrome?.runtime.sendMessage) {
         chrome.runtime.sendMessage(
           { type: 'SAVE_CONFIG', config },
           (response) => {
@@ -351,7 +351,7 @@ const Index = () => {
                 disabled={!isRunning}
                 onClick={stopAutomation}
               >
-                <Stop size={18} className="mr-2" />
+                <Square size={18} className="mr-2" /> {/* Changed from Stop to Square */}
                 Stop Automation
               </Button>
             ) : (
