@@ -1,8 +1,8 @@
 
 {
   "manifest_version": 3,
-  "name": "Web Extension",
-  "description": "A beautifully designed browser extension",
+  "name": "URL Automation Extension",
+  "description": "Automate browsing with customizable URL sequences",
   "version": "1.0.0",
   "action": {
     "default_popup": "index.html",
@@ -15,7 +15,12 @@
   },
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
