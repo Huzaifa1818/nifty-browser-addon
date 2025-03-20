@@ -16,14 +16,21 @@ import {
 import UrlConfigItem from "@/components/UrlConfigItem";
 import { 
   Play, 
-  Square, // Replacing Stop with Square icon
+  Square, 
   Plus,
   Settings,
   Upload,
   Download,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UrlConfig {
   url: string;
@@ -54,7 +61,7 @@ const generateAutomationSteps = (urlConfigs: UrlConfig[]) => {
       type: "gotoUrl",
       config: {
         url: urlConfig.url,
-        timeout: 30000
+        timeout: 3000 // Add consistent timeout for page loading
       }
     });
     
@@ -72,9 +79,7 @@ const generateAutomationSteps = (urlConfigs: UrlConfig[]) => {
     steps.push({
       type: "scrollPage",
       config: {
-        distance: 0,
-        type: "smooth",
-        scrollType: "position",
+        scrollType: "wheel",
         position: "bottom",
         randomWheelDistance: [
           urlConfig.scrollConfig.wheelDistanceMin,
@@ -87,13 +92,21 @@ const generateAutomationSteps = (urlConfigs: UrlConfig[]) => {
       }
     });
     
+    // Wait a bit before scrolling back up
+    steps.push({
+      type: "waitTime",
+      config: {
+        timeoutType: "randomInterval",
+        timeoutMin: 2000,
+        timeoutMax: 4000
+      }
+    });
+    
     // Scroll back to top
     steps.push({
       type: "scrollPage",
       config: {
-        distance: 0,
-        type: "smooth",
-        scrollType: "position",
+        scrollType: "wheel",
         position: "top",
         randomWheelDistance: [
           urlConfig.scrollConfig.wheelDistanceMin,
@@ -118,13 +131,13 @@ const generateAutomationSteps = (urlConfigs: UrlConfig[]) => {
 
 const defaultUrlConfig: UrlConfig = {
   url: "https://example.com",
-  waitTimeMin: 20000,
-  waitTimeMax: 30000,
+  waitTimeMin: 5000,
+  waitTimeMax: 10000,
   scrollConfig: {
-    wheelDistanceMin: 100,
-    wheelDistanceMax: 200,
-    scrollSleepTimeMin: 300,
-    scrollSleepTimeMax: 600
+    wheelDistanceMin: 50,
+    wheelDistanceMax: 100,
+    scrollSleepTimeMin: 500,
+    scrollSleepTimeMax: 1000
   }
 };
 
@@ -132,6 +145,7 @@ const Index = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [urlConfigs, setUrlConfigs] = useState<UrlConfig[]>([{ ...defaultUrlConfig }]);
   const [jsonConfig, setJsonConfig] = useState("");
+  const [showUrlHelp, setShowUrlHelp] = useState(false);
   
   // Check status on load
   useEffect(() => {
@@ -351,7 +365,7 @@ const Index = () => {
                 disabled={!isRunning}
                 onClick={stopAutomation}
               >
-                <Square size={18} className="mr-2" /> {/* Changed from Stop to Square */}
+                <Square size={18} className="mr-2" />
                 Stop Automation
               </Button>
             ) : (
@@ -366,18 +380,51 @@ const Index = () => {
               </Button>
             )}
             
-            <Button
-              variant="outline"
-              disabled={isRunning}
-              onClick={saveConfiguration}
-            >
-              <Settings size={18} />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={isRunning}
+                    onClick={saveConfiguration}
+                  >
+                    <Settings size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Save current configuration</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </motion.div>
         
         {!isRunning && (
           <>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-medium">URL Configuration</h3>
+              <div 
+                className="cursor-pointer text-blue-500 flex items-center"
+                onClick={() => setShowUrlHelp(!showUrlHelp)}
+              >
+                <AlertCircle size={16} className="mr-1" />
+                <span className="text-xs">Help</span>
+              </div>
+            </div>
+            
+            {showUrlHelp && (
+              <div className="bg-blue-50 p-3 rounded-md mb-4 text-xs text-blue-800">
+                <p className="font-medium mb-1">How the automation works:</p>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>Add one or more URLs to visit</li>
+                  <li>For each URL, set wait times and scroll speeds</li>
+                  <li>Click "Start Automation" to begin the sequence</li>
+                  <li>The extension will open a tab and visit each URL</li>
+                  <li>At each URL, it will wait, scroll down, then scroll back up</li>
+                </ol>
+              </div>
+            )}
+            
             {urlConfigs.map((config, index) => (
               <motion.div key={index} variants={itemVariants}>
                 <UrlConfigItem
@@ -389,7 +436,7 @@ const Index = () => {
               </motion.div>
             ))}
             
-            <motion.div variants={itemVariants} className="mt-4">
+            <motion.div variants={itemVariants} className="mt-4 flex justify-center">
               <Button 
                 variant="outline" 
                 className="w-full border-dashed"
@@ -397,7 +444,7 @@ const Index = () => {
                 disabled={isRunning}
               >
                 <Plus size={18} className="mr-2" />
-                Add URL
+                Add Another URL
               </Button>
             </motion.div>
           </>
@@ -414,7 +461,7 @@ const Index = () => {
                 disabled={isRunning}
               >
                 <Upload size={14} className="mr-2" />
-                Import
+                Import/Export
               </Button>
             </SheetTrigger>
             <SheetContent>

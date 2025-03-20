@@ -104,7 +104,7 @@ async function runAutomation() {
                   chrome.tabs.onUpdated.removeListener(listener);
                   
                   // Give extra time for the page to fully render
-                  setTimeout(resolve, 2000);
+                  setTimeout(resolve, 3000); // Increased from 2000 to 3000ms
                 }
               };
               
@@ -141,81 +141,97 @@ async function runAutomation() {
               func: (scrollConfig) => {
                 console.log('In page script - scroll config:', scrollConfig);
                 
-                const scrollSmoothly = (scrollType, position, options) => {
-                  console.log('Scroll params:', scrollType, position, options);
-                  const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-                  
-                  if (scrollType === 'position') {
-                    console.log('Scrolling to position:', position);
-                    if (position === 'top') {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    } else if (position === 'bottom') {
-                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    }
-                  } else if (scrollType === 'wheel') {
-                    console.log('Scrolling with wheel simulation');
-                    // Implement smooth wheel scrolling with random intervals
-                    const totalScrolls = Math.ceil(
-                      (position === 'bottom' ? document.body.scrollHeight : window.scrollY) / 
-                      options.randomWheelDistance[1]
-                    );
+                // Function for smooth scrolling, pixel by pixel
+                const smoothScroll = (to, duration) => {
+                  return new Promise(resolve => {
+                    const element = document.scrollingElement || document.documentElement;
+                    const start = element.scrollTop;
+                    const change = to - start;
+                    const increment = 20;
+                    let currentTime = 0;
                     
-                    console.log('Total scroll operations:', totalScrolls);
-                    let currentScroll = 0;
-                    
-                    const wheelScroll = () => {
-                      if (currentScroll >= totalScrolls) {
-                        console.log('Wheel scrolling complete');
-                        return;
+                    function animateScroll() {
+                      currentTime += increment;
+                      const val = Math.easeInOutQuad(currentTime, start, change, duration);
+                      element.scrollTop = val;
+                      if (currentTime < duration) {
+                        setTimeout(animateScroll, increment);
+                      } else {
+                        resolve();
                       }
-                      
-                      const distance = randomBetween(
-                        options.randomWheelDistance[0], 
-                        options.randomWheelDistance[1]
-                      );
-                      
-                      console.log(`Scroll ${currentScroll + 1}/${totalScrolls}, distance: ${distance}`);
-                      
-                      window.scrollBy({
-                        top: position === 'bottom' ? distance : -distance,
-                        behavior: 'smooth'
-                      });
-                      
-                      currentScroll++;
-                      
-                      const sleepTime = randomBetween(
-                        options.randomWheelSleepTime[0], 
-                        options.randomWheelSleepTime[1]
-                      );
-                      console.log(`Next scroll in ${sleepTime}ms`);
-                      
-                      setTimeout(
-                        wheelScroll, 
-                        sleepTime
-                      );
+                    }
+                    
+                    // Easing function
+                    Math.easeInOutQuad = function(t, b, c, d) {
+                      t /= d/2;
+                      if (t < 1) return c/2*t*t + b;
+                      t--;
+                      return -c/2 * (t*(t-2) - 1) + b;
                     };
                     
-                    wheelScroll();
-                  }
-                  
-                  // Ensure we return true after scrolling completes
-                  return true;
+                    animateScroll();
+                  });
                 };
                 
-                scrollSmoothly(
-                  scrollConfig.scrollType || 'position', 
-                  scrollConfig.position, 
-                  {
-                    randomWheelDistance: scrollConfig.randomWheelDistance || [100, 200],
-                    randomWheelSleepTime: scrollConfig.randomWheelSleepTime || [300, 600]
+                async function performScroll() {
+                  const position = scrollConfig.position;
+                  const randomWheelDistance = scrollConfig.randomWheelDistance || [100, 200];
+                  const randomWheelSleepTime = scrollConfig.randomWheelSleepTime || [300, 600];
+                  
+                  // Get random sleep time
+                  const getRandomSleep = () => {
+                    return Math.floor(Math.random() * 
+                      (randomWheelSleepTime[1] - randomWheelSleepTime[0] + 1)) + randomWheelSleepTime[0];
+                  };
+                  
+                  // Slow scrolling function
+                  const slowScroll = async (direction) => {
+                    const documentHeight = Math.max(
+                      document.body.scrollHeight, 
+                      document.documentElement.scrollHeight,
+                      document.body.offsetHeight, 
+                      document.documentElement.offsetHeight
+                    );
+                    
+                    if (direction === 'down') {
+                      // Scroll down pixel by pixel
+                      const scrollSteps = Math.ceil(documentHeight / 100); // Divide page into steps
+                      for (let i = 1; i <= scrollSteps && i * 100 < documentHeight; i++) {
+                        await smoothScroll(i * 100, 1000); // Smooth scroll to next section
+                        await new Promise(r => setTimeout(r, getRandomSleep())); // Random pause
+                      }
+                      // Final scroll to ensure we reach bottom
+                      await smoothScroll(documentHeight, 1000);
+                    } else {
+                      // Scroll up pixel by pixel
+                      const scrollSteps = Math.ceil(documentHeight / 100);
+                      for (let i = scrollSteps; i >= 0; i--) {
+                        await smoothScroll(i * 100, 1000); // Smooth scroll to previous section
+                        await new Promise(r => setTimeout(r, getRandomSleep())); // Random pause
+                      }
+                      // Final scroll to ensure we reach top
+                      await smoothScroll(0, 1000);
+                    }
+                  };
+                  
+                  try {
+                    if (position === 'bottom') {
+                      await slowScroll('down');
+                    } else if (position === 'top') {
+                      await slowScroll('up');
+                    }
+                    return true;
+                  } catch (error) {
+                    console.error('Error during scrolling:', error);
+                    return false;
                   }
-                );
+                }
                 
-                // Signal completion after scrolling (with timeout for smooth scroll)
-                return true;
+                // Perform the scroll and return a promise
+                return performScroll();
               },
               args: [step.config]
-            }, (results) => {
+            }, async (results) => {
               if (chrome.runtime.lastError) {
                 console.error('Error executing script:', chrome.runtime.lastError);
                 reject(chrome.runtime.lastError);
@@ -224,7 +240,8 @@ async function runAutomation() {
               
               console.log('Script execution results:', results);
               // Give enough time for scrolling to complete
-              setTimeout(resolve, step.config.position === 'bottom' ? 5000 : 3000);
+              // We'll increase this timeout significantly to ensure scrolling completes
+              setTimeout(resolve, 15000); // Increased to 15 seconds
             });
           });
           break;
